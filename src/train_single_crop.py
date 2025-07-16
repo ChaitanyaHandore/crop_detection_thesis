@@ -8,9 +8,9 @@ Train/evaluate a single‐crop disease classifier with:
   • Classic:   resnet50, vgg16, alexnet  
 
 Includes augmentation, dropout, weight‐decay, early stopping,
-and saves a PNG of train/val loss & accuracy curves.
+measures total training time, and saves a PNG of train/val loss & accuracy curves.
 """
-import os, argparse, random
+import os, argparse, random, time
 from PIL import Image, UnidentifiedImageError
 import torch, torch.nn as nn, torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
@@ -173,6 +173,9 @@ def main():
     history = {"train_loss":[], "train_acc":[], "val_loss":[], "val_acc":[]}
     best_val_acc, no_improve = 0.0, 0
 
+    # record start time
+    t_start = time.time()
+
     for epoch in range(1, args.epochs+1):
         # — train —
         model.train()
@@ -227,7 +230,10 @@ def main():
                 print(f"→ Early stopping after epoch {epoch}")
                 break
 
+    # compute and print elapsed time
+    elapsed = time.time() - t_start
     print(f"🏁 Done. Best Val Acc: {best_val_acc:.4f}")
+    print(f"⏱️ Total training time: {elapsed/60:.2f} minutes ({elapsed:.0f} seconds)")
 
     # 3f) Plot & save curves
     epochs = range(1, len(history["train_loss"])+1)
