@@ -54,7 +54,8 @@ rich==14.0.0
 rich-toolkit==0.14.8
 rignore==0.6.2
 safetensors==0.5.3
-scikit-learn==1.2.2
+
+
 scipy==1.15.3
 seaborn==0.12.2
 sentry-sdk==2.33.0
