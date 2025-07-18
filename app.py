@@ -5,26 +5,25 @@ from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 import torch
 import torchvision.transforms as T
+from huggingface_hub import hf_hub_download
 
-# ensure our training‐script is importable
+# ─── Setup ──────────────────────────────────────────────────────────────
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 from train_all_crops import build_backbone
 
-# ─── Configuration ────────────────────────────────────────────────────────────
-BASE_DIR       = os.path.dirname(__file__)
-MODELS_DIR     = os.path.join(BASE_DIR, "models")
-CLASS_MAP_PATH = os.path.join(BASE_DIR, "class_map.json")
+# ─── Configuration ──────────────────────────────────────────────────────
+REPO_ID = "Chaitanya412/crop-models"  # Hugging Face repo
+CLASS_MAP_PATH = os.path.join(os.path.dirname(__file__), "class_map.json")
 
 # load class‐map (list of labels)
 with open(CLASS_MAP_PATH, "r") as f:
     CLASS_MAP = json.load(f)
 
-# map model_name → checkpoint file
-AVAILABLE = {
-    name: os.path.join(MODELS_DIR, f"best_all_{name}.pth")
-    for name in ["resnet50", "vgg16", "alexnet", "convnext_tiny", "vit_b_16", "mobilevit_s"]
-}
+# available model names
+AVAILABLE = [
+    "resnet50", "vgg16", "alexnet", "convnext_tiny", "vit_b_16", "mobilevit_s"
+]
 
 # preprocessing pipeline
 preprocess = T.Compose([
@@ -34,33 +33,34 @@ preprocess = T.Compose([
     T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 ])
 
-# ─── FastAPI setup ────────────────────────────────────────────────────────────
+# ─── FastAPI Setup ──────────────────────────────────────────────────────
 app = FastAPI(
     title="Crop‐Disease Classifier API",
     version="0.1.0",
     description="Upload a leaf image + choose model_name to get disease prediction"
 )
 
-# ─── Routes ────────────────────────────────────────────────────────────
-
+# ─── Load Model from HuggingFace Hub ────────────────────────────────────
 def load_model(name: str):
     if name not in AVAILABLE:
-        raise HTTPException(400, f"Unknown model '{name}'. Choose from {list(AVAILABLE)}")
-    ckpt = AVAILABLE[name]
-    if not os.path.isfile(ckpt):
-        raise HTTPException(500, f"Checkpoint not found: {ckpt}")
+        raise HTTPException(400, f"Unknown model '{name}'. Choose from {AVAILABLE}")
+    
+    # Download the checkpoint file from HF hub
+    ckpt_path = hf_hub_download(repo_id=REPO_ID, filename=f"best_all_{name}.pth")
+
     model = build_backbone(name, num_classes=len(CLASS_MAP), pretrained=False)
-    state = torch.load(ckpt, map_location="cpu")
+    state = torch.load(ckpt_path, map_location="cpu")
     model.load_state_dict(state)
     return model.eval()
 
+# ─── Routes ─────────────────────────────────────────────────────────────
 @app.get("/ping")
 def ping():
     return {"message": "API is working 🚀"}
 
 @app.post("/predict/")
 async def predict(
-    model_name: str = Query(..., description="one of " + ", ".join(AVAILABLE.keys())),
+    model_name: str = Query(..., description="one of " + ", ".join(AVAILABLE)),
     file: UploadFile = File(..., description="Upload a leaf image file")
 ):
     data = await file.read()
@@ -89,6 +89,6 @@ async def predict(
         "confidence_score": round(conf, 4)
     })
 
-# ─── Serve HTML ──────────────────────────────────────────────────────
+# ─── Serve HTML Frontend ────────────────────────────────────────────────
 from fastapi.staticfiles import StaticFiles
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
