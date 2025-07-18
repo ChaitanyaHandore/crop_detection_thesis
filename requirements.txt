@@ -69,7 +69,7 @@ threadpoolctl==3.6.0
 timm==0.9.0
 torch==2.7.1
 torchaudio==2.7.1
-torchvision==0.18.1
+torchvision==0.22.1
 tqdm==4.67.1
 typer==0.16.0
 typing-inspection==0.4.1
