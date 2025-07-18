@@ -20,11 +20,10 @@ CLASS_MAP_PATH = os.path.join(BASE_DIR, "class_map.json")
 with open(CLASS_MAP_PATH, "r") as f:
     CLASS_MAP = json.load(f)
 
-
 # map model_name → checkpoint file
 AVAILABLE = {
     name: os.path.join(MODELS_DIR, f"best_all_{name}.pth")
-    for name in ["resnet50","vgg16","alexnet","convnext_tiny","vit_b_16","mobilevit_s"]
+    for name in ["resnet50", "vgg16", "alexnet", "convnext_tiny", "vit_b_16", "mobilevit_s"]
 }
 
 # preprocessing pipeline
@@ -32,9 +31,8 @@ preprocess = T.Compose([
     T.Resize(256),
     T.CenterCrop(224),
     T.ToTensor(),
-    T.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225]),
+    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 ])
-
 
 # ─── FastAPI setup ────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -43,10 +41,9 @@ app = FastAPI(
     description="Upload a leaf image + choose model_name to get disease prediction"
 )
 
+# ─── Routes ────────────────────────────────────────────────────────────
+
 def load_model(name: str):
-    """
-    Build the backbone, load its .pth, and return eval‐mode model.
-    """
     if name not in AVAILABLE:
         raise HTTPException(400, f"Unknown model '{name}'. Choose from {list(AVAILABLE)}")
     ckpt = AVAILABLE[name]
@@ -57,41 +54,41 @@ def load_model(name: str):
     model.load_state_dict(state)
     return model.eval()
 
-@app.get("/")
-def index():
-    return {"message":"Crop‐Disease Classifier API"}
+@app.get("/ping")
+def ping():
+    return {"message": "API is working 🚀"}
 
 @app.post("/predict/")
 async def predict(
     model_name: str = Query(..., description="one of " + ", ".join(AVAILABLE.keys())),
     file: UploadFile = File(..., description="Upload a leaf image file")
 ):
-    # 1) Read & validate image
     data = await file.read()
     try:
         img = Image.open(io.BytesIO(data)).convert("RGB")
     except UnidentifiedImageError:
         raise HTTPException(400, "Uploaded file is not a valid image")
 
-    # 2) Preprocess
-    x = preprocess(img).unsqueeze(0)  # add batch dim
+    x = preprocess(img).unsqueeze(0)
 
-    # 3) Inference
     try:
         model = load_model(model_name)
         with torch.no_grad():
             logits = model(x)
-            probs  = torch.softmax(logits, dim=1)[0]
-            idx    = int(probs.argmax().item())
-            label  = CLASS_MAP[idx]
-            conf   = float(probs[idx].item())
+            probs = torch.softmax(logits, dim=1)[0]
+            idx = int(probs.argmax().item())
+            label = CLASS_MAP[idx]
+            conf = float(probs[idx].item())
     except Exception as e:
-        traceback.print_exc()  # print full stack to your terminal
+        traceback.print_exc()
         raise HTTPException(500, f"Inference failed: {e}")
 
-    # 4) Return JSON
     return JSONResponse({
-        "model":            model_name,
-        "predicted_label":  label,
+        "model": model_name,
+        "predicted_label": label,
         "confidence_score": round(conf, 4)
     })
+
+# ─── Serve HTML ──────────────────────────────────────────────────────
+from fastapi.staticfiles import StaticFiles
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
