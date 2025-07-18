@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Crop Disease Classifier 🌱</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #preview { max-height: 250px; margin-bottom: 10px; }
+    #result { margin-top: 20px; }
+    #spinner { display: none; }
+  </style>
+</head>
+<body class="bg-light p-4">
+
+  <div class="container">
+    <h2 class="mb-4">🌾 Crop Disease Detection</h2>
+
+    <div class="mb-3">
+      <label for="imageInput" class="form-label">Upload Leaf Image</label>
+      <input class="form-control" type="file" id="imageInput" accept="image/*">
+      <img id="preview" class="img-thumbnail mt-2 d-none"/>
+    </div>
+
+    <div class="mb-3">
+      <label for="modelSelect" class="form-label">Select Model</label>
+      <select class="form-select" id="modelSelect">
+        <option value="resnet50">ResNet-50</option>
+        <option value="vgg16">VGG-16</option>
+        <option value="alexnet">AlexNet</option>
+        <option value="convnext_tiny">ConvNeXt Tiny</option>
+        <option value="vit_b_16">ViT Base</option>
+        <option value="mobilevit_s">MobileViT Small</option>
+      </select>
+    </div>
+
+    <button class="btn btn-success" onclick="submitForm()">🔍 Predict</button>
+    <div id="spinner" class="spinner-border text-success ms-3" role="status"></div>
+
+    <div id="result" class="alert alert-info mt-4 d-none"></div>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById("imageInput");
+    const preview = document.getElementById("preview");
+    const resultBox = document.getElementById("result");
+    const spinner = document.getElementById("spinner");
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove("d-none");
+      }
+    });
+
+    async function submitForm() {
+      const file = imageInput.files[0];
+      const model = document.getElementById("modelSelect").value;
+
+      if (!file) {
+        alert("Please select an image first.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      spinner.style.display = "inline-block";
+      resultBox.classList.add("d-none");
+
+      try {
+        const response = await fetch(`/predict/?model_name=${model}`, {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          resultBox.innerHTML = `<strong>Prediction:</strong> ${data.predicted_label}<br><strong>Confidence:</strong> ${data.confidence_score}`;
+          resultBox.classList.remove("d-none");
+        } else {
+          resultBox.innerHTML = `<strong>Error:</strong> ${data.detail}`;
+          resultBox.classList.replace("alert-info", "alert-danger");
+          resultBox.classList.remove("d-none");
+        }
+      } catch (err) {
+        resultBox.innerHTML = `<strong>Network error.</strong>`;
+        resultBox.classList.replace("alert-info", "alert-danger");
+        resultBox.classList.remove("d-none");
+      } finally {
+        spinner.style.display = "none";
+      }
+    }
+  </script>
+
+</body>
+</html>
