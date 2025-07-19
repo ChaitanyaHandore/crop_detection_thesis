@@ -9,3 +9,4 @@ venv/
 # Ignore datasets and model files
 data/
 models/
+models/*.pth
