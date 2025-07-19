@@ -1,11 +1,9 @@
-<pre>
 ---
 title: Crop Disease App
-emoji: 🌾
+emoji: 🌿
 colorFrom: green
 colorTo: purple
-sdk: gradio
+sdk: docker
 app_file: app.py
 pinned: false
 ---
-</pre>
